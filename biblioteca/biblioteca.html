@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Biblioteca | Acervo digital</title>
+    <link rel="stylesheet" href="blstyle.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+
+</head>
+<body class="bg-light">
+    <div class="container mt-4 mb-5">
+        <header class="mb-4 text-center">
+            <h1 class="display-5 fw-bold">Biblioteca Digital</h1>
+            <p class="lead text-secondary mb-0">Organize seu acervo e encontre sua próxima história.</p>
+        </header>
+
+        <section class="card shadow-sm mb-4 card-hover">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">Acervo de livros</h2>
+                <button id="openModal" type="button" class="btn btn-light btn-sm">＋ Adicionar livro</button>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4"><div class="border rounded p-3 h-100"><small class="text-secondary">Livros no acervo</small><strong id="total" class="d-block fs-3">0</strong></div></div>
+                    <div class="col-md-4"><div class="border rounded p-3 h-100"><small class="text-secondary">Disponíveis agora</small><strong id="available" class="d-block fs-3 text-success">0</strong></div></div>
+                    <div class="col-md-4"><div class="border rounded p-3 h-100"><small class="text-secondary">Meus empréstimos</small><strong id="loans" class="d-block fs-3 text-primary">0</strong></div></div>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-8"><input id="search" type="search" class="form-control" placeholder="Buscar por título ou autor..." aria-label="Buscar livros"></div>
+                    <div class="col-md-4"><select id="category" class="form-select" aria-label="Filtrar por categoria"><option value="">Todas as categorias</option><option>Ficção</option><option>Romance</option><option>Tecnologia</option><option>Negócios</option></select></div>
+                </div>
+                <div id="bookGrid" class="book-grid"></div>
+            </div>
+        </section>
+
+        <section id="emprestimos" class="card shadow-sm mb-4 card-hover">
+            <div class="card-header bg-primary text-white"><h2 class="h5 mb-0">Resumo dos empréstimos</h2></div>
+            <div class="card-body">
+                <p class="text-secondary">Acompanhe abaixo o status dos livros disponíveis no acervo.</p>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead><tr><th>Indicador</th><th>Quantidade</th><th>Status</th></tr></thead>
+                        <tbody>
+                            <tr><td>Total de livros</td><td id="tableTotal">0</td><td><span class="badge text-bg-primary">Acervo</span></td></tr>
+                            <tr><td>Livros disponíveis</td><td id="tableAvailable">0</td><td><span class="badge text-bg-success">Disponível</span></td></tr>
+                            <tr><td>Livros emprestados</td><td id="tableLoans">0</td><td><span class="badge text-bg-warning">Em uso</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="sobre" class="card shadow-sm card-hover">
+            <div class="card-header bg-success text-white"><h2 class="h5 mb-0">Como funciona</h2></div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4"><h3 class="h6">1. Pesquise</h3><p class="small text-secondary mb-0">Use o campo de busca ou filtre por categoria.</p></div>
+                    <div class="col-md-4"><h3 class="h6">2. Consulte</h3><p class="small text-secondary mb-0">Veja autor, categoria e disponibilidade de cada livro.</p></div>
+                    <div class="col-md-4"><h3 class="h6">3. Empreste</h3><p class="small text-secondary mb-0">Clique em emprestar para atualizar o status do acervo.</p></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div id="modal" class="modal fade" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h2 id="modalTitle" class="modal-title fs-5">Adicionar novo livro</h2><button id="closeModal" type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+                <form id="bookForm">
+                    <div class="modal-body">
+                        <div class="mb-3"><label for="title" class="form-label">Título</label><input id="title" name="title" class="form-control" required placeholder="Ex.: O Hobbit"></div>
+                        <div class="mb-3"><label for="author" class="form-label">Autor</label><input id="author" name="author" class="form-control" required placeholder="Ex.: J. R. R. Tolkien"></div>
+                        <div><label for="bookCategory" class="form-label">Categoria</label><select id="bookCategory" name="category" class="form-select"><option>Ficção</option><option>Romance</option><option>Tecnologia</option><option>Negócios</option></select></div>
+                    </div>
+                    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Adicionar ao acervo</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      let books = [];
+const grid = document.querySelector('#bookGrid');
+const modal = new bootstrap.Modal(document.querySelector('#modal'));
+
+// =========================================================================
+// 1. CARREGAR DADOS DO BANCO (MySQL ➔ Java ➔ Front-end)
+// =========================================================================
+async function carregarLivrosDoBanco() {
+    try {
+        const resposta = await fetch('http://localhost:8080/api/livros');
+        if (!resposta.ok) throw new Error(`Erro HTTP: ${resposta.status}`);
+        
+        // Recebe o JSON vindo do Java/MySQL
+        const livrosDoBanco = await resposta.json();
+        
+        // CONVERSÃO (Java ➔ Front-end):
+        // Mapeia os atributos da classe Java (titulo, autor, quantidadeDisponivel)
+        // para os nomes utilizados na interface HTML/JS (title, author, available)
+        books = livrosDoBanco.map(livro => ({
+            id: livro.id,
+            title: livro.titulo,
+            author: livro.autor,
+            category: livro.categoria,
+            emoji: '📚',
+            available: livro.quantidadeDisponivel > 0
+        }));
+
+        render();
+    } catch (erro) {
+        console.error('Erro ao carregar livros do banco de dados:', erro);
+    }
+}
+
+// =========================================================================
+// 2. RENDERIZAR INTERFACE (Exibição no Ecrã)
+// =========================================================================
+function render() {
+    const query = document.querySelector('#search').value.toLowerCase();
+    const category = document.querySelector('#category').value;
+    const list = books.filter(book => 
+        (book.title.toLowerCase().includes(query) || book.author.toLowerCase().includes(query)) && 
+        (!category || book.category === category)
+    );
+
+    grid.innerHTML = list.length ? list.map(book => `
+        <article class="card book-card card-hover">
+            <div class="book-cover">${book.emoji || '📚'}</div>
+            <div class="card-body">
+                <h3 class="h6 card-title">${book.title}</h3>
+                <p class="text-secondary small mb-3">${book.author} · ${book.category}</p>
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                    <span class="badge ${book.available ? 'text-bg-success' : 'text-bg-danger'}">
+                        ${book.available ? 'Disponível' : 'Emprestado'}
+                    </span>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn ${book.available ? 'btn-outline-primary' : 'btn-outline-success'} borrow" data-index="${books.indexOf(book)}">
+                            ${book.available ? 'Emprestar' : 'Devolver'}
+                        </button>
+                        <button class="btn btn-outline-danger remove" data-index="${books.indexOf(book)}">Remover</button>
+                    </div>
+                </div>
+            </div>
+        </article>
+    `).join('') : '<div class="empty text-center text-secondary py-5">Nenhum livro encontrado.</div>';
+
+    const available = books.filter(book => book.available).length;
+    const loans = books.length - available;
+
+    document.querySelector('#total').textContent = books.length;
+    document.querySelector('#available').textContent = available;
+    document.querySelector('#loans').textContent = loans;
+    document.querySelector('#tableTotal').textContent = books.length;
+    document.querySelector('#tableAvailable').textContent = available;
+    document.querySelector('#tableLoans').textContent = loans;
+}
+
+// =========================================================================
+// 3. ADICIONAR ACERVO (Front-end ➔ Java ➔ MySQL ➔ Java ➔ Front-end)
+// =========================================================================
+document.querySelector('#bookForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.target);
+
+    // ETAPA A: CONVERSÃO (Front-end ➔ Java)
+    // Extrai os valores do formulário (title, author, category) e monta
+    // o objeto com os nomes exatos das propriedades da Entidade Livro.java (titulo, autor, categoria)
+    const livroParaJava = {
+        titulo: form.get('title'),
+        autor: form.get('author'),
+        categoria: form.get('category')
+    };
+
+    try {
+        // ETAPA B: ENVIO HTTP (Front-end ➔ Java)
+        const resposta = await fetch('http://localhost:8080/api/livros', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(livroParaJava)
+        });
+
+        if (!resposta.ok) {
+            throw new Error(`Erro ao guardar no servidor: ${resposta.status}`);
+        }
+
+        // ETAPA C: RETORNO CONFIRMADO DO BANCO (MySQL ➔ Java ➔ Front-end)
+        // O Java persistiu no MySQL via Repository e devolveu o objeto já contendo o ID gerado pelo banco
+        const livroSalvoDoBanco = await resposta.json();
+        console.log('Livro gravado no MySQL e retornado do Java:', livroSalvoDoBanco);
+
+        // ETAPA D: CONVERSÃO DE VOLTA (Java ➔ Front-end)
+        // Mapeia a resposta confirmada do banco para o formato de exibição do Front-end
+        const livroParaFront = {
+            id: livroSalvoDoBanco.id,
+            title: livroSalvoDoBanco.titulo,
+            author: livroSalvoDoBanco.autor,
+            category: livroSalvoDoBanco.categoria,
+            emoji: '📚',
+            available: livroSalvoDoBanco.quantidadeDisponivel > 0
+        };
+
+        // Atualiza a lista em memória e re-renderiza o ecrã
+        books.unshift(livroParaFront);
+        event.target.reset();
+        modal.hide();
+        render();
+
+    } catch (erro) {
+        console.error('Falha ao adicionar livro:', erro);
+        alert('Não foi possível guardar o livro no banco de dados.');
+    }
+});
+
+// Eventos de Filtros e Modal
+document.querySelector('#search').addEventListener('input', render);
+document.querySelector('#category').addEventListener('change', render);
+document.querySelector('#openModal').addEventListener('click', () => modal.show());
+
+grid.addEventListener('click', event => {
+    const action = event.target.closest('button');
+    if (!action) return;
+    const index = Number(action.dataset.index);
+    if (action.classList.contains('borrow')) {
+        books[index].available = !books[index].available;
+    }
+    if (action.classList.contains('remove')) {
+        const book = books[index];
+        if (!window.confirm(`Remover "${book.title}" do acervo?`)) return;
+        books.splice(index, 1);
+    }
+    render();
+});
+
+// Inicia a aplicação realizando a leitura inicial do banco de dados
+carregarLivrosDoBanco();
+    </script>
+</body>
+</html>
